@@ -46,7 +46,7 @@ export default defineConfig({
     host: true,
     port: 5174,
     allowedHosts: [
-      'a0b68235eccc.ngrok-free.app',
+      'c341dadd13bb.ngrok-free.app',
       
     ],
     proxy: {

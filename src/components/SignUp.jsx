@@ -18,7 +18,7 @@ function SignUp() {
       payerPhone: "",
       description: "",
       externalId: nanoid(10),
-      callbackUrl: "https://a0b68235eccc.ngrok-free.app/callback",
+      callbackUrl: "https://c341dadd13bb.ngrok-free.app/callback",
       redirectUrl: "https://webhook.site/e34a02c1-7a7b-4e8f-bcdf-097b69d52239"
   
   
