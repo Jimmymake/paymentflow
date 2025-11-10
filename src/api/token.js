@@ -26,7 +26,8 @@ export async function getBearerToken(options = {}) {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort('Token request timed out'), 15000)
   console.log('[token] requesting token for', username)
-  const res = await fetch('/api/v1', {
+  const apiBase = (import.meta.env.VITE_API_BASE || '/api').replace(/\/$/, '')
+  const res = await fetch(`${apiBase}/v1`, {
     method: 'GET',
     headers: {
       'Authorization': `Basic ${basic}`,

@@ -44,9 +44,9 @@ export default defineConfig({
   ],
   server: {
     host: true,
-    port: 5174,
+    port: 3001,
     allowedHosts: [
-      'c341dadd13bb.ngrok-free.app',
+      'paymentflow.mam-laka.com/',
       
     ],
     proxy: {
