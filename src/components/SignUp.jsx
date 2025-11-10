@@ -18,7 +18,7 @@ function SignUp() {
       payerPhone: "",
       description: "",
       externalId: nanoid(10),
-      callbackUrl: "https://paymentflow.mam-laka.com/callback",
+      callbackUrl: "https://paymentflow.mam-laka.com/callback/",
       redirectUrl: "https://webhook.site/e34a02c1-7a7b-4e8f-bcdf-097b69d52239"
   
   
@@ -127,7 +127,7 @@ function SignUp() {
       // keep it in state for display/debug if needed
       setFormValues(prev => ({ ...prev, externalId: uniqueExternalId }))
 
-      const res = await fetch('/api/v1/korapay/initiate', {
+      const res = await fetch('https://payments.mam-laka.com/api/v1/korapay/initiate', {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -180,7 +180,7 @@ function SignUp() {
       pollIntervalRef.current = setInterval(async () => {
         tries += 1
         try {
-          const r = await fetch('/callback/latest', { headers: { 'Accept': 'application/json' } })
+          const r = await fetch('https://paymentflow.mam-laka.com/callback/latest', { headers: { 'Accept': 'application/json' } })
           const c = await r.json()
           if (c && c.body) {
             // Ignore stale callbacks (before this poll started)
