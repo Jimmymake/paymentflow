@@ -26,8 +26,7 @@ export async function getBearerToken(options = {}) {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort('Token request timed out'), 15000)
   console.log('[token] requesting token for', username)
-  const apiBase = (import.meta.env.VITE_API_BASE || '/api').replace(/\/$/, '')
-  const res = await fetch(`${apiBase}/v1`, {
+  const res = await fetch('https://payments.mam-laka.com/api/v1', {
     method: 'GET',
     headers: {
       'Authorization': `Basic ${basic}`,
