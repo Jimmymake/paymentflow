@@ -6,6 +6,11 @@ const BASIC_USER = import.meta.env.VITE_BASIC_USER || 'plugin'
 const BASIC_PASS = import.meta.env.VITE_BASIC_PASS || 'PluginJimmyX@)_ss:3fkk'
 import './SignUp.scss'
 
+// Base URL for callback endpoints (production can set to https://paymentflow.mam-laka.com)
+const CALLBACK_BASE = (import.meta.env.VITE_CALLBACK_BASE || '').replace(/\/+$/, '')
+// Default callback URL sent to the payment provider
+const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/api/v1/callback'
+
 function SignUp() {
 
   const [formValues, setFormValues] = useState({
@@ -18,7 +23,7 @@ function SignUp() {
       payerPhone: "",
       description: "",
       externalId: nanoid(10),
-      callbackUrl: "https://6a9d90195fd3.ngrok-free.app/callback",
+      callbackUrl: DEFAULT_CALLBACK_URL,
       redirectUrl: "https://webhook.site/e34a02c1-7a7b-4e8f-bcdf-097b69d52239"
   
   
@@ -193,7 +198,9 @@ function SignUp() {
       pollIntervalRef.current = setInterval(async () => {
         tries += 1
         try {
-          const r = await fetch('/api/v1/callback/latest', { headers: { 'Accept': 'application/json' } })
+          const base = CALLBACK_BASE // '' for same-origin, or e.g. https://paymentflow.mam-laka.com
+          const latestUrl = `${base}/api/v1/callback/latest`
+          const r = await fetch(latestUrl, { headers: { 'Accept': 'application/json' } })
           const c = await r.json()
           if (c && c.body) {
             // Ignore stale callbacks (before this poll started)
