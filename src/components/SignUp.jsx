@@ -18,7 +18,7 @@ function SignUp() {
       payerPhone: "",
       description: "",
       externalId: nanoid(10),
-      callbackUrl: "https://paymentflow.mam-laka.com/callback/",
+      callbackUrl: "https://6a9d90195fd3.ngrok-free.app/callback",
       redirectUrl: "https://webhook.site/e34a02c1-7a7b-4e8f-bcdf-097b69d52239"
   
   
@@ -103,6 +103,19 @@ function SignUp() {
       'Authorization': `Bearer ${bearerToken}`,
     }
 
+    // Normalize callbackUrl to ensure it targets /api/v1/callback
+    let normalizedCallbackUrl = formValues.callbackUrl
+    try {
+      const u = new URL(formValues.callbackUrl)
+      if (u.pathname === '/callback' || u.pathname.endsWith('/callback')) {
+        u.pathname = '/api/v1/callback'
+        u.search = ''
+        normalizedCallbackUrl = u.toString()
+      }
+    } catch {
+      // leave as-is if invalid; backend will still work if provider ignores it
+    }
+
     const payload = {
       impalaMerchantId: formValues.impalaMerchantId,
       currency: formValues.currency,
@@ -112,7 +125,7 @@ function SignUp() {
       payerPhone: formValues.payerPhone,
       description: formValues.description,
       externalId: formValues.externalId,
-      callbackUrl: formValues.callbackUrl,
+      callbackUrl: normalizedCallbackUrl,
       redirectUrl: formValues.redirectUrl,
     }
 
@@ -180,7 +193,7 @@ function SignUp() {
       pollIntervalRef.current = setInterval(async () => {
         tries += 1
         try {
-          const r = await fetch('https://paymentflow.mam-laka.com/callback/latest', { headers: { 'Accept': 'application/json' } })
+          const r = await fetch('/api/v1/callback/latest', { headers: { 'Accept': 'application/json' } })
           const c = await r.json()
           if (c && c.body) {
             // Ignore stale callbacks (before this poll started)

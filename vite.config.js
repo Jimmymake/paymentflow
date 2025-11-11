@@ -8,48 +8,25 @@ let latestCallback = null
 export default defineConfig({
   plugins: [
     react(),
-    {
-      name: 'dev-callback-endpoints',
-      configureServer(server) {
-        server.middlewares.use('/callback/latest', (req, res) => {
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify(latestCallback || { message: 'no-callback-yet' }))
-        })
-        server.middlewares.use('/callback', async (req, res, next) => {
-          if (req.method !== 'POST') return next()
-          try {
-            let body = ''
-            req.on('data', (chunk) => { body += chunk })
-            req.on('end', () => {
-              let json
-              try { json = JSON.parse(body || '{}') } catch { json = { raw: body } }
-              latestCallback = {
-                receivedAt: new Date().toISOString(),
-                headers: req.headers,
-                body: json,
-              }
-              console.log('[callback] received:', latestCallback)
-              res.statusCode = 200
-              res.setHeader('Content-Type', 'application/json')
-              res.end(JSON.stringify({ ok: true }))
-            })
-          } catch (e) {
-            console.error('[callback] error:', e)
-            res.statusCode = 500
-            res.end('error')
-          }
-        })
-      },
-    },
   ],
   server: {
     host: true,
     port: 3001,
     allowedHosts: [
-      'paymentflow.mam-laka.com/',
+      '6a9d90195fd3.ngrok-free.app',
       
     ],
     proxy: {
+      '/api/v1/callback/latest': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/api/v1/callback': {
+        target: 'http://localhost:8081',
+        changeOrigin: true,
+        secure: false,
+      },
       '/api': {
         target: 'https://payments.mam-laka.com',
         changeOrigin: true,
