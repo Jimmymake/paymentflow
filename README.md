@@ -27,10 +27,10 @@ docker build -t paymentflow:latest .
 ### Run the container
 
 ```bash
-docker run --rm -p 3000:80 paymentflow:latest
+docker run -d -p 3001:80 --name paymentflow-container paymentflow:latest
 ```
 
-The application is served from Nginx and will be available at http://localhost:3000.
+The application is served from Nginx and will be available at http://localhost:3001.
 
 ### Using Docker Compose
 

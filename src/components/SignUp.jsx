@@ -6,10 +6,10 @@ const BASIC_USER = import.meta.env.VITE_BASIC_USER || 'plugin'
 const BASIC_PASS = import.meta.env.VITE_BASIC_PASS || 'PluginJimmyX@)_ss:3fkk'
 import './SignUp.scss'
 
-// Base URL for callback endpoints (production can set to https://paymentflow.mam-laka.com)
+
 const CALLBACK_BASE = (import.meta.env.VITE_CALLBACK_BASE || '').replace(/\/+$/, '')
 // Default callback URL sent to the payment provider
-const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/api/v1/callback'
+const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://1175253aee96.ngrok-free.app/api/v1/callback'
 
 function SignUp() {
 
@@ -24,7 +24,7 @@ function SignUp() {
       description: "",
       externalId: nanoid(10),
       callbackUrl: DEFAULT_CALLBACK_URL,
-      redirectUrl: "https://webhook.site/e34a02c1-7a7b-4e8f-bcdf-097b69d52239"
+      redirectUrl: "https://webhook.site/b69cf7a1-f6b4-4ca8-a98c-3928b5f716c8"
   
   
   })
@@ -36,7 +36,7 @@ function SignUp() {
   const [callbackData, setCallbackData] = useState(null)
   const [transactionStatus, setTransactionStatus] = useState('idle') // idle | pending | success | failed
   const [transactionRef, setTransactionRef] = useState('')
-  // Polling management to avoid duplicate/recurring updates
+
   const pollIntervalRef = useRef(null)
   const pollStartAtRef = useRef(0)
   const currentExternalIdRef = useRef('')
@@ -118,7 +118,7 @@ function SignUp() {
         normalizedCallbackUrl = u.toString()
       }
     } catch {
-      // leave as-is if invalid; backend will still work if provider ignores it
+  
     }
 
     const payload = {

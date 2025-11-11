@@ -1,7 +1,7 @@
 import http from 'http'
 import { URL } from 'url'
 
-// Simple in-memory store for the latest webhook payload
+
 let latestCallback = null
 
 function sendJson(res, statusCode, data) {
@@ -19,10 +19,10 @@ function notFound(res) {
 
 const server = http.createServer((req, res) => {
 	try {
-		// Use a fixed base to avoid depending on Host header (prevents 500)
+	console.log(req)
 		const parsed = new URL(req.url || '/', 'http://localhost')
 		let pathname = parsed.pathname || '/'
-		// Normalize: drop trailing slash (except root)
+	
 		if (pathname.length > 1 && pathname.endsWith('/')) pathname = pathname.slice(0, -1)
 		console.log(`[server] ${req.method} ${pathname}`)
 
@@ -31,7 +31,7 @@ const server = http.createServer((req, res) => {
 			return sendJson(res, 200, { ok: true })
 		}
 
-		// Preflight for webhook and latest endpoints
+
 		if (req.method === 'OPTIONS' && (pathname === '/api/v1/callback' || pathname === '/api/v1/callback/latest')) {
 			res.statusCode = 204
 			res.setHeader('Access-Control-Allow-Origin', '*')
@@ -40,12 +40,10 @@ const server = http.createServer((req, res) => {
 			return res.end()
 		}
 
-		// Expose latest callback
 		if (req.method === 'GET' && (pathname === '/api/v1/callback/latest')) {
 			return sendJson(res, 200, latestCallback || { message: 'no-callback-yet' })
 		}
 
-		// Receive webhook callback
 		if (req.method === 'POST' && pathname === '/api/v1/callback') {
 			let body = ''
 			req.on('data', (chunk) => { body += chunk })
