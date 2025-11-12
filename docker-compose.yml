@@ -1,11 +1,25 @@
+version: '3.8'
 services:
-  paymentflow:
+  frontend:
     build:
       context: .
+      dockerfile: Dockerfile.frontend
     ports:
-      - "3000:80"
-    restart: always
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+    command: npm run dev
 
-
-
-
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - frontend

@@ -67,7 +67,7 @@ const server = http.createServer((req, res) => {
 	}
 })
 
-const PORT = Number(process.env.PORT || 80)
+const PORT = Number(process.env.PORT || 3001)
 server.on('error', (err) => {
 	console.error('[server] listen error:', err && err.code ? err.code : err)
 })
