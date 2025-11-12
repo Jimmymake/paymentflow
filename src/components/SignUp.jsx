@@ -9,7 +9,7 @@ import './SignUp.scss'
 
 const CALLBACK_BASE = (import.meta.env.VITE_CALLBACK_BASE || '').replace(/\/+$/, '')
 // Default callback URL sent to the payment provider
-const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://1175253aee96.ngrok-free.app/api/v1/callback'
+const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/api/v1/callback'
 
 function SignUp() {
 
@@ -79,8 +79,8 @@ function SignUp() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.customerEmail)) {
       nextErrors.customerEmail = 'Enter a valid email address'
     }
-    if (!values.payerPhone.trim()) nextErrors.payerPhone = 'Payer phone is required'
-    else if (!/^\+?[1-9]\d{7,14}$/.test(values.payerPhone.trim())) nextErrors.payerPhone = 'Phone must be E.164 (e.g. +2547...)'
+   // if (!values.payerPhone.trim()) nextErrors.payerPhone = 'Payer phone is required'
+  //  else if (!/^\+?[1-9]\d{7,14}$/.test(values.payerPhone.trim())) nextErrors.payerPhone = 'Phone must be E.164 (e.g. +2547...)'
     if (!values.description.trim()) nextErrors.description = 'Description is required'
     return nextErrors
   }
@@ -145,7 +145,7 @@ function SignUp() {
       // keep it in state for display/debug if needed
       setFormValues(prev => ({ ...prev, externalId: uniqueExternalId }))
 
-      const res = await fetch('https://payments.mam-laka.com/api/v1/korapay/initiate', {
+      const res = await fetch('https://payments.mam-laka.com/api/v1/flutterwave/initiate', {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -425,7 +425,7 @@ function SignUp() {
                   <option value="UGX">Uganda (UGX)</option>
                   <option value="TZS">Tanzania (TZS)</option>
                   <option value="XAF">Cameroon (XAF)</option>
-                  <option value="NGN">Nigeria (NGN)</option>
+                 // <option value="NGN">Nigeria (NGN)</option>
                   <option value="GHS">Ghana (GHS)</option>
                 </select>
                 {errors.currency && (
@@ -460,7 +460,8 @@ function SignUp() {
                   id="payerPhone"
                   name="payerPhone"
                   type="tel"
-                  placeholder="Enter phonenumber(+254...)"
+                  placeholder="Enter phonenumber
+"
                   value={formValues.payerPhone}
                   onChange={handleChange}
                   aria-invalid={Boolean(errors.payerPhone) || undefined}

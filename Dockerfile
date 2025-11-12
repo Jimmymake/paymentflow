@@ -1,23 +1,33 @@
-# syntax=docker/dockerfile:1.7
-
-ARG NODE_VERSION=20.18.0
-
-FROM node:${NODE_VERSION}-alpine AS base
+# Stage 1: Build React frontend
+FROM node:20-alpine AS frontend-build
 WORKDIR /app
-ENV NODE_ENV=production
 
-FROM base AS deps
-ENV NODE_ENV=development
-COPY package.json package-lock.json ./
-RUN npm ci
+# Copy everything needed for frontend build
+COPY package*.json ./
+COPY vite.config.js ./
+COPY index.html ./
+COPY src ./src
+COPY public ./public
 
-FROM deps AS build
-ENV NODE_ENV=production
-COPY . .
+RUN npm install
 RUN npm run build
 
-FROM nginx:1.27-alpine AS runtime
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Stage 2: Setup backend + serve frontend
+FROM node:20-alpine
+WORKDIR /app
 
+# Copy backend files
+COPY package*.json ./
+COPY server.js ./
+
+# Install backend dependencies inside the container
+RUN npm install --production
+
+# Copy frontend build
+COPY --from=frontend-build /app/dist ./dist
+
+# Expose backend port
+EXPOSE 3001
+
+# Start backend server
+CMD ["node", "server.js"]
