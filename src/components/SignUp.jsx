@@ -9,7 +9,7 @@ import './SignUp.scss'
 
 const CALLBACK_BASE = (import.meta.env.VITE_CALLBACK_BASE || '').replace(/\/+$/, '')
 // Default callback URL sent to the payment provider
-const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/api/v1/callback'
+const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/callback'
 
 function SignUp() {
 

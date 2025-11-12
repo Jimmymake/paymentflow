@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+<<<<<<< HEAD
     ports:
       - "5173:5173"
     environment:
@@ -12,6 +13,27 @@ services:
       - ./src:/app/src
       - ./public:/app/public
     command: npm run dev
+=======
+      args:
+        VITE_CALLBACK_BASE: http://backend
+    ports:
+      - "5174:80"
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      - PORT=80
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
+
+
+>>>>>>> 1afe03a (backend)
 
   backend:
     build:
