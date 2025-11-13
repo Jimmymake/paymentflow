@@ -9,22 +9,24 @@ import './SignUp.scss'
 
 const CALLBACK_BASE = (import.meta.env.VITE_CALLBACK_BASE || '').replace(/\/+$/, '')
 // Default callback URL sent to the payment provider
-const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/callback'
+const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://f7a5dc4dc942.ngrok-free.app/callback'
+const POLL_INTERVAL_MS = Number(import.meta.env.VITE_CALLBACK_POLL_INTERVAL_MS || 2000) // default 2s
+const POLL_TIMEOUT_MS = Number(import.meta.env.VITE_CALLBACK_POLL_TIMEOUT_MS || 180000) // default 3 minutes
 
 function SignUp() {
 
   const [formValues, setFormValues] = useState({
     
-      impalaMerchantId:"plugin",
-      currency: "KES",
+      impalaMerchantId: 'plugin',
+      currency: 'KES',
       amount: '',
-      customerName: "", 
-      customerEmail: "",
-      payerPhone: "",
-      description: "",
+      customerName: '',
+      customerEmail: '',
+      payerPhone: '',
+      description: '',
       externalId: nanoid(10),
       callbackUrl: DEFAULT_CALLBACK_URL,
-      redirectUrl: "https://webhook.site/b69cf7a1-f6b4-4ca8-a98c-3928b5f716c8"
+      redirectUrl: 'https://webhook.site/b69cf7a1-f6b4-4ca8-a98c-3928b5f716c8'
   
   
   })
@@ -36,6 +38,7 @@ function SignUp() {
   const [callbackData, setCallbackData] = useState(null)
   const [transactionStatus, setTransactionStatus] = useState('idle') // idle | pending | success | failed
   const [transactionRef, setTransactionRef] = useState('')
+  const [statusMessage, setStatusMessage] = useState('')
 
   const pollIntervalRef = useRef(null)
   const pollStartAtRef = useRef(0)
@@ -61,6 +64,13 @@ function SignUp() {
       ...prev,
       [name]: name === 'amount' ? value : value,
     }))
+
+    setErrors((prev) => {
+      if (!prev[name]) return prev
+      const next = { ...prev }
+      delete next[name]
+      return next
+    })
   }
 
   function isValidUrl(url) {
@@ -79,7 +89,7 @@ function SignUp() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.customerEmail)) {
       nextErrors.customerEmail = 'Enter a valid email address'
     }
-   // if (!values.payerPhone.trim()) nextErrors.payerPhone = 'Payer phone is required'
+  //  if (!values.payerPhone.trim()) nextErrors.payerPhone = 'Payer phone is required'
   //  else if (!/^\+?[1-9]\d{7,14}$/.test(values.payerPhone.trim())) nextErrors.payerPhone = 'Phone must be E.164 (e.g. +2547...)'
     if (!values.description.trim()) nextErrors.description = 'Description is required'
     return nextErrors
@@ -145,7 +155,7 @@ function SignUp() {
       // keep it in state for display/debug if needed
       setFormValues(prev => ({ ...prev, externalId: uniqueExternalId }))
 
-      const res = await fetch('https://payments.mam-laka.com/api/v1/flutterwave/initiate', {
+      const res = await fetch('https://payments.mam-laka.com/api/v1/korapay/initiate', {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -172,14 +182,23 @@ function SignUp() {
         }
       }
       
+      console.log('Response body:', data)
+
       if (!res.ok) {
+        const message =
+          data.message ||
+          data.error ||
+          data.statusMessage ||
+          data.status_message ||
+          'Payment initiation failed'
         setApiResponse({
           error: true,
           status: res.status,
           statusText: res.statusText,
-          message: data.message || data.error || 'Payment initiation failed',
+          message,
           data: data
         })
+        setStatusMessage(message)
         setSubmitted(true)
         setTransactionStatus('failed')
         setSubmitting(false)
@@ -188,13 +207,14 @@ function SignUp() {
       
       setApiResponse(null)
       setTransactionStatus('pending')
+      setStatusMessage('Awaiting payment confirmation…')
       // start fresh poll; clear any existing one
       clearPoll()
       pollStartAtRef.current = Date.now()
       currentExternalIdRef.current = uniqueExternalId
       
       let tries = 0
-      const maxTries = 60 // ~60 seconds
+      const maxTries = Math.max(1, Math.ceil(POLL_TIMEOUT_MS / POLL_INTERVAL_MS))
       pollIntervalRef.current = setInterval(async () => {
         tries += 1
         try {
@@ -210,20 +230,84 @@ function SignUp() {
                 return
               }
             }
+            const body = c?.body || {}
+            const data = body.data || {}
+
             // If webhook carries externalId, ensure it matches current one
-            const cbExternalId = c?.body?.externalId || c?.body?.data?.externalId
+            const cbExternalId =
+              body.externalId ||
+              body.external_id ||
+              data.externalId ||
+              data.external_id ||
+              data.reference ||
+              data.payment_reference ||
+              data.tx_ref ||
+              body.reference
             if (cbExternalId && cbExternalId !== currentExternalIdRef.current) {
               return
             }
+            console.log('Callback payload:', c)
             setCallbackData(c)
 
-            const status = c?.body?.status || c?.body?.data?.status
-            const ref = c?.body?.data?.reference || c?.body?.reference
-            if (status === 'success') {
+            const statusCandidates = [
+              body.status,
+              data.status,
+              data.transaction_status,
+              body.transactionStatus,
+              body.transaction_status,
+              body.transactionReport,
+              body.transaction_report,
+              body.paymentStatus,
+              data.paymentStatus,
+              data.statusCode,
+              data.status_code,
+              body.statusCode,
+              data.processor_response,
+              data.response_description,
+              body.event,
+              data.event
+            ]
+            const statusText = statusCandidates.find(
+              (val) => typeof val === 'string' && val.trim().length > 0
+            )
+            const status = statusText ? statusText.toLowerCase().trim() : ''
+            const ref =
+              data.reference ||
+              data.payment_reference ||
+              data.tx_ref ||
+              body.reference ||
+              body.payment_reference ||
+              body.externalId ||
+              data.externalId
+            if (
+              status.includes('success') ||
+              status.includes('completed') ||
+              status.includes('approved') ||
+              status.includes('paid')
+            ) {
               setTransactionStatus('success')
+              setStatusMessage(
+                data.status_message ||
+                  data.statusMessage ||
+                  body.status_message ||
+                  body.message ||
+                  body.transactionReport ||
+                  'Payment confirmed successfully.'
+              )
               setSubmitted(true)
             } else {
               setTransactionStatus('failed')
+              setStatusMessage(
+                (body.message ||
+                 data.message ||
+                 data.status_message ||
+                 data.failure_reason ||
+                 data.statusMessage ||
+                 data.processor_response ||
+                 data.response_description ||
+                 body.paymentStatusDescription ||
+                 'Payment failed. Please try again.')
+              )
               setSubmitted(true)
             }
             if (ref) setTransactionRef(ref)
@@ -238,11 +322,13 @@ function SignUp() {
           // Timeout without callback -> treat as failed
           clearPoll()
           setTransactionStatus((prev) => (prev === 'pending' ? 'failed' : prev))
+          const timeoutSeconds = Math.round(POLL_TIMEOUT_MS / 1000)
+          setStatusMessage(`Timed out waiting for payment confirmation after ${timeoutSeconds} seconds.`)
           setSubmitted(true)
           setSubmitting(false)
         }
     
-      }, 1000)
+      }, POLL_INTERVAL_MS)
     } catch (e) {
       console.error('Payment initiation error:', e)
       setApiResponse({ 
@@ -250,6 +336,7 @@ function SignUp() {
         message: 'Network error: ' + e.message,
         details: String(e)
       })
+      setStatusMessage('Network error: ' + e.message)
       setSubmitted(true)
       setSubmitting(false)
     }
@@ -267,6 +354,11 @@ function SignUp() {
 
         {submitted ? (
           <div className={`signup__success ${transactionStatus === 'failed' ? 'signup__success--error' : ''}`} role="status">
+            {statusMessage && (
+              <p className="signup__status-message" style={{ marginBottom: '12px' }}>
+                {statusMessage}
+              </p>
+            )}
             {transactionStatus === 'pending' && (
               <>
                 <h2>Waiting for payment confirmation…</h2>
@@ -282,6 +374,11 @@ function SignUp() {
                       const amount = data.amount
                       const currency = data.currency
                       const method = data.payment_method || data.channel
+                      const message =
+                        data.status_message ||
+                        data.statusMessage ||
+                        data.message ||
+                        b.message
                       return (
                         <ul style={{ margin: 0, paddingLeft: '18px' }}>
                           {event && <li>Event: <strong>{event}</strong></li>}
@@ -291,6 +388,7 @@ function SignUp() {
                             <li>Amount: <strong>{amount}</strong> {currency}</li>
                           )}
                           {method && <li>Method: <strong>{method}</strong></li>}
+                          {message && <li>Message: <strong>{message}</strong></li>}
                         </ul>
                       )
                     })()}
@@ -307,23 +405,29 @@ function SignUp() {
                     {transactionRef && <p className="signup__result-sub">Reference: {transactionRef}</p>}
                     {callbackData && (
                       <div className="signup__details">
-                        {(() => {
-                          const b = callbackData?.body || {}
-                          const data = b.data || {}
-                          const ref = data.payment_reference || data.reference || b.reference
-                          const amount = data.amount
-                          const currency = data.currency
-                          const method = data.payment_method || data.channel
-                          return (
-                            <ul>
-                              {ref && <li>Reference: <strong>{ref}</strong></li>}
-                              {(amount != null || currency) && (
-                                <li>Amount: <strong>{amount}</strong> {currency}</li>
-                              )}
-                              {method && <li>Method: <strong>{method}</strong></li>}
-                            </ul>
-                          )
-                        })()}
+                    {(() => {
+                      const b = callbackData?.body || {}
+                      const data = b.data || {}
+                      const ref = data.payment_reference || data.reference || b.reference
+                      const amount = data.amount
+                      const currency = data.currency
+                      const method = data.payment_method || data.channel
+                      const message =
+                        data.status_message ||
+                        data.statusMessage ||
+                        data.message ||
+                        b.message
+                      return (
+                        <ul>
+                          {ref && <li>Reference: <strong>{ref}</strong></li>}
+                          {(amount != null || currency) && (
+                            <li>Amount: <strong>{amount}</strong> {currency}</li>
+                          )}
+                          {method && <li>Method: <strong>{method}</strong></li>}
+                          {message && <li>Message: <strong>{message}</strong></li>}
+                        </ul>
+                      )
+                    })()}
                       </div>
                     )}
                   </div>
@@ -339,25 +443,39 @@ function SignUp() {
                     <p className="signup__result-sub">Please try again or use a different method.</p>
                     {callbackData && (
                       <div className="signup__details">
-                        {(() => {
-                          const b = callbackData?.body || {}
-                          const data = b.data || {}
-                          const ref = data.payment_reference || data.reference || b.reference
-                          const event = b.event
-                          const amount = data.amount
-                          const currency = data.currency
-                          const method = data.payment_method || data.channel
-                          return (
-                            <ul>
-                              {event && <li>Event: <strong>{event}</strong></li>}
-                              {ref && <li>Reference: <strong>{ref}</strong></li>}
-                              {(amount != null || currency) && (
-                                <li>Amount: <strong>{amount}</strong> {currency}</li>
-                              )}
-                              {method && <li>Method: <strong>{method}</strong></li>}
-                            </ul>
-                          )
-                        })()}
+                    {(() => {
+                      const b = callbackData?.body || {}
+                      const data = b.data || {}
+                      const ref = data.payment_reference || data.reference || b.reference
+                      const event = b.event
+                      const amount = data.amount
+                      const currency = data.currency
+                      const method = data.payment_method || data.channel
+                      const status =
+                        data.status || b.status
+                      const message =
+                        data.status_message ||
+                        data.statusMessage ||
+                        data.message ||
+                        b.message
+                      const reason =
+                        data.reason ||
+                        data.failure_reason ||
+                        data.failureReason
+                      return (
+                        <ul>
+                          {event && <li>Event: <strong>{event}</strong></li>}
+                          {status && <li>Status: <strong>{String(status)}</strong></li>}
+                          {ref && <li>Reference: <strong>{ref}</strong></li>}
+                          {(amount != null || currency) && (
+                            <li>Amount: <strong>{amount}</strong> {currency}</li>
+                          )}
+                          {method && <li>Method: <strong>{method}</strong></li>}
+                          {message && <li>Message: <strong>{message}</strong></li>}
+                          {reason && <li>Reason: <strong>{reason}</strong></li>}
+                        </ul>
+                      )
+                    })()}
                       </div>
                     )}
                   </div>
@@ -365,7 +483,16 @@ function SignUp() {
               </>
             )}
             <button 
-              onClick={() => { clearPoll(); setSubmitted(false); setApiResponse(null); setErrors({}); setCallbackData(null); setTransactionStatus('idle'); setTransactionRef('') }}
+              onClick={() => {
+                clearPoll()
+                setSubmitted(false)
+                setApiResponse(null)
+                setErrors({})
+                setCallbackData(null)
+                setTransactionStatus('idle')
+                setTransactionRef('')
+                setStatusMessage('')
+              }}
               className="signup__submit"
               style={{ marginTop: '16px', width: '100%' }}
             >
@@ -449,9 +576,7 @@ function SignUp() {
                 {errors.amount && (
                   <span className="signup__error">{errors.amount}</span>
                 )}
-              </div>
-
-        
+              </div>       
          
 
               <div className="signup__field">
@@ -460,12 +585,14 @@ function SignUp() {
                   id="payerPhone"
                   name="payerPhone"
                   type="tel"
-                  placeholder="Enter phonenumber
-"
+                  placeholder="Enter phone Number(+254...)"
                   value={formValues.payerPhone}
                   onChange={handleChange}
                   aria-invalid={Boolean(errors.payerPhone) || undefined}
                 />
+                <small style={{ display: 'block', marginTop: '4px', opacity: 0.75 }}>
+                  Use full international format, e.g. +2547XXXXXXXX.
+                </small>
                 {errors.payerPhone && (
                   <span className="signup__error">{errors.payerPhone}</span>
                 )}
@@ -490,7 +617,7 @@ function SignUp() {
           
 
             <button className="signup__submit" type="submit" disabled={submitting}>
-              {submitting ? 'waiting transaction to complete...' : 'PAY NOW'}
+              {submitting ? 'waiting(input pin)...' : 'PAY NOW'}
             </button>
           </form>
         )}

@@ -8,6 +8,12 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     cors: true,
-    allowedHosts: ['paymentflow.mam-laka.com', 'localhost','127.0.0.1','51dc204bf351.ngrok-free.app']
+    allowedHosts: [ 'localhost','127.0.0.1','f7a5dc4dc942.ngrok-free.app'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true
+      }
+    }
   }
 });

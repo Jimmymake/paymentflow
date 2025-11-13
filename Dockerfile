@@ -21,12 +21,13 @@ COPY package*.json ./
 COPY server.js ./
 
 # Install backend dependencies inside the container
-RUN npm install --production
+RUN npm install --omit=dev
 
 # Copy frontend build
 COPY --from=frontend-build /app/dist ./dist
 
 # Expose backend port
+ENV PORT=3001
 EXPOSE 3001
 
 # Start backend server
