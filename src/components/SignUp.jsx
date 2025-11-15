@@ -9,7 +9,7 @@ import './SignUp.scss'
 
 const CALLBACK_BASE = (import.meta.env.VITE_CALLBACK_BASE || '').replace(/\/+$/, '')
 // Default callback URL sent to the payment provider
-const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://f7a5dc4dc942.ngrok-free.app/callback'
+const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/api/v1/callback'
 const POLL_INTERVAL_MS = Number(import.meta.env.VITE_CALLBACK_POLL_INTERVAL_MS || 2000) // default 2s
 const POLL_TIMEOUT_MS = Number(import.meta.env.VITE_CALLBACK_POLL_TIMEOUT_MS || 180000) // default 3 minutes
 
@@ -155,7 +155,7 @@ function SignUp() {
       // keep it in state for display/debug if needed
       setFormValues(prev => ({ ...prev, externalId: uniqueExternalId }))
 
-      const res = await fetch('https://payments.mam-laka.com/api/v1/korapay/initiate', {
+      const res = await fetch('https://payments.mam-laka.com/api/v1/flutterwave/initiate', {
         method: 'POST',
         headers,
         body: JSON.stringify({
