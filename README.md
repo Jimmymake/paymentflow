@@ -39,3 +39,4 @@ docker compose up --build
 ```
 
 This command maps the container to http://localhost:3000 and rebuilds the image whenever the Dockerfile or dependencies change.
+ // "dev": "bash -c \"npm run server:dev & vite\"",

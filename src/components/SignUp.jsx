@@ -9,7 +9,10 @@ import './SignUp.scss'
 
 const CALLBACK_BASE = (import.meta.env.VITE_CALLBACK_BASE || '').replace(/\/+$/, '')
 // Default callback URL sent to the payment provider
-const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/api/v1/callback'
+// const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/api/v1/callback'
+const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://a9814392e7bf.ngrok-free.app/callback'
+// const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://webhook.site/36224084-57fe-42f3-917f-61848d6f6116'
+
 const POLL_INTERVAL_MS = Number(import.meta.env.VITE_CALLBACK_POLL_INTERVAL_MS || 2000) // default 2s
 const POLL_TIMEOUT_MS = Number(import.meta.env.VITE_CALLBACK_POLL_TIMEOUT_MS || 180000) // default 3 minutes
 
@@ -18,6 +21,7 @@ function SignUp() {
   const [formValues, setFormValues] = useState({
     
       impalaMerchantId: 'plugin',
+      country: "KE",
       currency: 'KES',
       amount: '',
       customerName: '',
@@ -133,6 +137,7 @@ function SignUp() {
 
     const payload = {
       impalaMerchantId: formValues.impalaMerchantId,
+      country: formValues.country,
       currency: formValues.currency,
       amount: formValues.amount,
       customerName: formValues.customerName,
@@ -155,7 +160,7 @@ function SignUp() {
       // keep it in state for display/debug if needed
       setFormValues(prev => ({ ...prev, externalId: uniqueExternalId }))
 
-      const res = await fetch('https://payments.mam-laka.com/api/v1/flutterwave/initiate', {
+      const res = await fetch('https://payments.mam-laka.com/api/v1/pay', {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -537,7 +542,26 @@ function SignUp() {
                 )}
               </div>
 
-         
+           <div className="signup__field">
+                <label htmlFor="country">Country</label>
+                <select
+                  id="country"
+                  name="country"
+                  value={formValues.country}
+                  onChange={handleChange}
+                  aria-invalid={Boolean(errors.country) || undefined}
+                >
+                  <option value="KE">Kenya</option>
+                  <option value="UG">Uganda</option>
+                  <option value="TZ">Tanzania</option>
+                  <option value="XA">Cameroon</option>
+                  <option value="NG">Nigeria</option>
+                  <option value="GH">Ghana</option>
+                </select>
+                {errors.country && (
+                  <span className="signup__error">{errors.country}</span>
+                )}
+              </div>
 
               <div className="signup__field">
                 <label htmlFor="currency">Currency</label>
@@ -552,7 +576,7 @@ function SignUp() {
                   <option value="UGX">Uganda (UGX)</option>
                   <option value="TZS">Tanzania (TZS)</option>
                   <option value="XAF">Cameroon (XAF)</option>
-                 // <option value="NGN">Nigeria (NGN)</option>
+                  <option value="NGN">Nigeria (NGN)</option>
                   <option value="GHS">Ghana (GHS)</option>
                 </select>
                 {errors.currency && (
@@ -591,7 +615,7 @@ function SignUp() {
                   aria-invalid={Boolean(errors.payerPhone) || undefined}
                 />
                 <small style={{ display: 'block', marginTop: '4px', opacity: 0.75 }}>
-                  Use full international format, e.g. +2547XXXXXXXX.
+                  Use full international format, e.g. 254,255(no +).
                 </small>
                 {errors.payerPhone && (
                   <span className="signup__error">{errors.payerPhone}</span>
