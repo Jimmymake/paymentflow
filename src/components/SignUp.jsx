@@ -9,12 +9,12 @@ import './SignUp.scss'
 
 const CALLBACK_BASE = (import.meta.env.VITE_CALLBACK_BASE || '').replace(/\/+$/, '')
 // Default callback URL sent to the payment provider
-// const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/api/v1/callback'
-const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://a9814392e7bf.ngrok-free.app/callback'
+const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/api/v1/callback'
+// const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://c8e5bc5620e7.ngrok-free.app/callback'
 // const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://webhook.site/36224084-57fe-42f3-917f-61848d6f6116'
 
 const POLL_INTERVAL_MS = Number(import.meta.env.VITE_CALLBACK_POLL_INTERVAL_MS || 2000) // default 2s
-const POLL_TIMEOUT_MS = Number(import.meta.env.VITE_CALLBACK_POLL_TIMEOUT_MS || 180000) // default 3 minutes
+// const POLL_TIMEOUT_MS = Number(import.meta.env.VITE_CALLBACK_POLL_TIMEOUT_MS || 180000) // default 3 minutes
 
 function SignUp() {
 
@@ -46,12 +46,25 @@ function SignUp() {
 
   const pollIntervalRef = useRef(null)
   const pollStartAtRef = useRef(0)
+  const pollTimeoutRef = useRef(null)
+  const submissionLockRef = useRef(false)
+  const controllerRef = useRef(null)
+  const lastAttemptRef = useRef(null)
   const currentExternalIdRef = useRef('')
+
+  useEffect(() => {
+    console.log('SignUp mounted')
+    return () => console.log('SignUp unmounted')
+  }, [])
 
   function clearPoll() {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current)
       pollIntervalRef.current = null
+    }
+    if (pollTimeoutRef.current) {
+      clearTimeout(pollTimeoutRef.current)
+      pollTimeoutRef.current = null
     }
   }
 
@@ -101,9 +114,21 @@ function SignUp() {
 
   async function handleSubmit(event) {
     event.preventDefault()
+    // prevent duplicate submissions (clicks/keypress) while one is in-flight
+    if (submissionLockRef.current) return
+    submissionLockRef.current = true
+    setSubmitting(true)
+    // create a short attempt id for diagnostics
+    const attemptId = nanoid(8)
+    lastAttemptRef.current = attemptId
     const nextErrors = validate(formValues)
     setErrors(nextErrors)
-    if (Object.keys(nextErrors).length > 0) return
+    if (Object.keys(nextErrors).length > 0) {
+      // release lock when validation fails
+      submissionLockRef.current = false
+      setSubmitting(false)
+      return
+    }
 
     let bearerToken
     try {
@@ -113,6 +138,9 @@ function SignUp() {
     } catch (e) {
       setApiResponse({ error: true, message: 'Failed to get token', details: String(e?.message || e) })
       setSubmitted(true)
+      // release lock on failure
+      submissionLockRef.current = false
+      setSubmitting(false)
       return
     }
 
@@ -157,12 +185,22 @@ function SignUp() {
       setErrors({})
       // ensure a unique externalId on each try to prevent duplicate conflicts
       const uniqueExternalId = nanoid(12)
-      // keep it in state for display/debug if needed
-      setFormValues(prev => ({ ...prev, externalId: uniqueExternalId }))
+  // keep it in state for display/debug if needed
+  setFormValues(prev => ({ ...prev, externalId: uniqueExternalId }))
 
-      const res = await fetch('https://payments.mam-laka.com/api/v1/pay', {
+      
+        // abort any previous in-flight request for safety (shouldn't happen with lock)
+        if (controllerRef.current) {
+          try { controllerRef.current.abort() } catch {}
+        }
+        controllerRef.current = new AbortController()
+        console.log('Submitting payment initiation:', payload, { attemptId, externalId: uniqueExternalId })
+        //  const res = await fetch('https://payments.mam-laka.com/api/v1/flutterwave/initiate', {
+        const res = await fetch('https://payments.mam-laka.com/api/v1/pay', {
         method: 'POST',
-        headers,
+        signal: controllerRef.current.signal,
+        // provide an idempotency key header so backends can dedupe
+        headers: { ...headers, 'Idempotency-Key': uniqueExternalId },
         body: JSON.stringify({
           ...payload,
           externalId: uniqueExternalId,
@@ -171,7 +209,7 @@ function SignUp() {
         }),
       })
       
-      console.log('Response status:', res.status, res.statusText)
+        console.log('Response status:', res.status, res.statusText, { attemptId })
       
       // Safely parse response using clone to avoid "body stream already read" errors
       let data
@@ -207,32 +245,43 @@ function SignUp() {
         setSubmitted(true)
         setTransactionStatus('failed')
         setSubmitting(false)
+        submissionLockRef.current = false
         return
       }
       
-      setApiResponse(null)
+  setApiResponse(null)
       setTransactionStatus('pending')
-      setStatusMessage('Awaiting payment confirmation…')
+  setStatusMessage(`Awaiting payment confirmation… (attempt ${attemptId})`)
       // start fresh poll; clear any existing one
       clearPoll()
       pollStartAtRef.current = Date.now()
       currentExternalIdRef.current = uniqueExternalId
       
-      let tries = 0
-      const maxTries = Math.max(1, Math.ceil(POLL_TIMEOUT_MS / POLL_INTERVAL_MS))
-      pollIntervalRef.current = setInterval(async () => {
-        tries += 1
+  // Terminate polling after 25 seconds for this transaction attempt
+  const POLL_TERMINATE_MS = 25 * 1000 // 25 seconds
+  pollIntervalRef.current = setInterval(async () => {
         try {
           const base = CALLBACK_BASE // '' for same-origin, or e.g. https://paymentflow.mam-laka.com
           const latestUrl = `${base}/api/v1/callback/latest`
           const r = await fetch(latestUrl, { headers: { 'Accept': 'application/json' } })
           const c = await r.json()
           if (c && c.body) {
-            // Ignore stale callbacks (before this poll started)
+            // Ignore stale callbacks (before this poll started) and
+            // ignore excessively delayed callbacks.
             if (c.receivedAt) {
               const ts = new Date(c.receivedAt).getTime()
-              if (Number.isFinite(ts) && ts < pollStartAtRef.current) {
-                return
+              if (Number.isFinite(ts)) {
+                // If callback arrived before we started polling, ignore it.
+                if (ts < pollStartAtRef.current) {
+                  return
+                }
+                // If the callback was received more than 25s after the poll
+                // started, ignore it.
+                const MAX_DELAY_MS = 25 * 1000 // 25 seconds
+                const delay = ts - pollStartAtRef.current
+                if (delay > MAX_DELAY_MS) {
+                  return
+                }
               }
             }
             const body = c?.body || {}
@@ -251,7 +300,7 @@ function SignUp() {
             if (cbExternalId && cbExternalId !== currentExternalIdRef.current) {
               return
             }
-            console.log('Callback payload:', c)
+            console.log('Callback payload:', c, { attemptId })
             setCallbackData(c)
 
             const statusCandidates = [
@@ -284,12 +333,10 @@ function SignUp() {
               body.payment_reference ||
               body.externalId ||
               data.externalId
-            if (
-              status.includes('success') ||
-              status.includes('completed') ||
-              status.includes('approved') ||
-              status.includes('paid')
-            ) {
+            // Treat a few canonical status words as success. Use word-boundary
+            // regexes to avoid false positives (e.g. don't treat 'incomplete' as success).
+            const successRegex = /\b(?:success|complete(?:d)?|approved|paid)\b/
+            if (successRegex.test(status)) {
               setTransactionStatus('success')
               setStatusMessage(
                 data.status_message ||
@@ -317,23 +364,42 @@ function SignUp() {
             }
             if (ref) setTransactionRef(ref)
             clearPoll()
+            // abort controller and clear ref
+            if (controllerRef.current) {
+              try { controllerRef.current.abort() } catch {}
+              controllerRef.current = null
+            }
             setSubmitting(false)
+            // release submission lock now that this attempt is finished
+            submissionLockRef.current = false
           }
         } catch {
-  setTransactionStatus('failed')
-
-        }
-        if (tries >= maxTries) {
-          // Timeout without callback -> treat as failed
+          setTransactionStatus('failed')
+          // stop polling and release lock on unexpected errors inside the poll
           clearPoll()
-          setTransactionStatus((prev) => (prev === 'pending' ? 'failed' : prev))
-          const timeoutSeconds = Math.round(POLL_TIMEOUT_MS / 1000)
-          setStatusMessage(`Timed out waiting for payment confirmation after ${timeoutSeconds} seconds.`)
-          setSubmitted(true)
+          if (controllerRef.current) {
+            try { controllerRef.current.abort() } catch {}
+            controllerRef.current = null
+          }
           setSubmitting(false)
+          submissionLockRef.current = false
+          setSubmitted(true)
         }
-    
       }, POLL_INTERVAL_MS)
+
+    // also terminate polling after a fixed timer in case no callback arrives
+    pollTimeoutRef.current = setTimeout(() => {
+      if (pollIntervalRef.current) clearPoll()
+      if (controllerRef.current) {
+        try { controllerRef.current.abort() } catch {}
+        controllerRef.current = null
+      }
+      setTransactionStatus((prev) => (prev === 'pending' ? 'failed' : prev))
+      setStatusMessage(`Timed out waiting for payment confirmation after ${Math.round(POLL_TERMINATE_MS / 1000)} seconds.`)
+      setSubmitted(true)
+      setSubmitting(false)
+      submissionLockRef.current = false
+    }, POLL_TERMINATE_MS)
     } catch (e) {
       console.error('Payment initiation error:', e)
       setApiResponse({ 
@@ -344,6 +410,7 @@ function SignUp() {
       setStatusMessage('Network error: ' + e.message)
       setSubmitted(true)
       setSubmitting(false)
+      submissionLockRef.current = false
     }
   }
 
@@ -505,7 +572,13 @@ function SignUp() {
             </button>
           </div>
         ) : (
-          <form className="signup__form" onSubmit={handleSubmit} noValidate>
+          <form
+            className="signup__form"
+            onSubmit={handleSubmit}
+            noValidate
+            aria-busy={submitting}
+            style={{ pointerEvents: submitting ? 'none' : undefined, opacity: submitting ? 0.85 : undefined }}
+          >
 
       <div className="signup__field">
                 <label htmlFor="customerName">Customer name</label>
