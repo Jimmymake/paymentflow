@@ -22,6 +22,7 @@ const countryCurrencyMap = {
   XA: 'XAF',
   NG: 'NGN',
   GH: 'GHS',
+  RW: 'RWF',
 }
 // const POLL_TIMEOUT_MS = Number(import.meta.env.VITE_CALLBACK_POLL_TIMEOUT_MS || 180000) // default 3 minutes
 
@@ -662,6 +663,7 @@ function SignUp() {
                   <option value="XA">Cameroon</option>
                   <option value="NG">Nigeria</option>
                   <option value="GH">Ghana</option>
+                  <option value="RW">Rwanda</option>
                 </select>
                 {errors.country && (
                   <span className="signup__error">{errors.country}</span>
@@ -688,6 +690,7 @@ function SignUp() {
                   <option value="XAF">Cameroon (XAF)</option>
                   <option value="NGN">Nigeria (NGN)</option>
                   <option value="GHS">Ghana (GHS)</option>
+                  <option value="RWF">Rwanda (RWF)</option>
                 </select>
                 {errors.currency && (
                   <span className="signup__error">{errors.currency}</span>
