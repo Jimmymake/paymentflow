@@ -10,10 +10,19 @@ import './SignUp.scss'
 const CALLBACK_BASE = (import.meta.env.VITE_CALLBACK_BASE || '').replace(/\/+$/, '')
 // Default callback URL sent to the payment provider
 const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://paymentflow.mam-laka.com/api/v1/callback'
-// const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://c8e5bc5620e7.ngrok-free.app/callback'
+// const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://5de81ae2c7e4.ngrok-free.app/callback'
 // const DEFAULT_CALLBACK_URL = import.meta.env.VITE_DEFAULT_CALLBACK_URL || 'https://webhook.site/36224084-57fe-42f3-917f-61848d6f6116'
 
 const POLL_INTERVAL_MS = Number(import.meta.env.VITE_CALLBACK_POLL_INTERVAL_MS || 2000) // default 2s
+
+const countryCurrencyMap = {
+  KE: 'KES',
+  UG: 'UGX',
+  TZ: 'TZS',
+  XA: 'XAF',
+  NG: 'NGN',
+  GH: 'GHS',
+}
 // const POLL_TIMEOUT_MS = Number(import.meta.env.VITE_CALLBACK_POLL_TIMEOUT_MS || 180000) // default 3 minutes
 
 function SignUp() {
@@ -21,8 +30,8 @@ function SignUp() {
   const [formValues, setFormValues] = useState({
     
       impalaMerchantId: 'plugin',
-     // country: "KE",
-      currency: 'KES',
+     country: '',
+      currency: '',
       amount: '',
       customerName: '',
       customerEmail: '',
@@ -75,12 +84,31 @@ function SignUp() {
   }, [])
 
 
-  function handleChange(event) {
+  // function handleChange(event) {
+  //   const { name, value } = event.target
+  //   setFormValues((prev) => ({
+  //     ...prev,
+  //     [name]: name === 'amount' ? value : value,
+  //   }))
+
+  //   setErrors((prev) => {
+  //     if (!prev[name]) return prev
+  //     const next = { ...prev }
+  //     delete next[name]
+  //     return next
+  //   })
+  // }
+
+    function handleChange(event) {
     const { name, value } = event.target
-    setFormValues((prev) => ({
-      ...prev,
-      [name]: name === 'amount' ? value : value,
-    }))
+    setFormValues((prev) => {
+      const updated = { ...prev, [name]: value }
+      // Auto-update currency when country changes
+      if (name === 'country') {
+        updated.currency = countryCurrencyMap[value] || ''
+      }
+      return updated
+    })
 
     setErrors((prev) => {
       if (!prev[name]) return prev
@@ -89,7 +117,6 @@ function SignUp() {
       return next
     })
   }
-
   function isValidUrl(url) {
     try { new URL(url); return true } catch { return false }
   }
@@ -97,6 +124,7 @@ function SignUp() {
   function validate(values) {
     const nextErrors = {}
     if (!values.impalaMerchantId.trim()) nextErrors.impalaMerchantId = 'Merchant ID is required'
+    if (!values.country.trim()) nextErrors.country = 'Country is required'
     if (!values.currency.trim()) nextErrors.currency = 'Currency is required'
     const parsedAmount = Number(values.amount)
     if (!Number.isFinite(parsedAmount) || !(parsedAmount > 9)) nextErrors.amount = 'Amount must be greater than 9'
@@ -165,7 +193,7 @@ function SignUp() {
 
     const payload = {
       impalaMerchantId: formValues.impalaMerchantId,
-     // country: formValues.country,
+     country: formValues.country,
       currency: formValues.currency,
       amount: formValues.amount,
       customerName: formValues.customerName,
@@ -622,8 +650,12 @@ function SignUp() {
                   name="country"
                   value={formValues.country}
                   onChange={handleChange}
+                  required
                   aria-invalid={Boolean(errors.country) || undefined}
                 >
+                  <option value="" disabled hidden>
+                    Select country
+                  </option>
                   <option value="KE">Kenya</option>
                   <option value="UG">Uganda</option>
                   <option value="TZ">Tanzania</option>
@@ -636,15 +668,20 @@ function SignUp() {
                 )}
               </div>
 
-            {/* <div className="signup__field">
+           <div className="signup__field">
                 <label htmlFor="currency">Currency</label>
                 <select
                   id="currency"
                   name="currency"
                   value={formValues.currency}
                   onChange={handleChange}
+                  disabled={!formValues.country}
+                  required
                   aria-invalid={Boolean(errors.currency) || undefined}
                 >
+                  <option value="" disabled hidden>
+                    {formValues.country ? 'Select currency' : 'Select country first'}
+                  </option>
                   <option value="KES">Kenya (KES)</option>
                   <option value="UGX">Uganda (UGX)</option>
                   <option value="TZS">Tanzania (TZS)</option>
@@ -655,7 +692,7 @@ function SignUp() {
                 {errors.currency && (
                   <span className="signup__error">{errors.currency}</span>
                 )}
-              </div>*/}
+              </div>
 
               <div className="signup__field">
                 <label htmlFor="amount">Amount</label>
