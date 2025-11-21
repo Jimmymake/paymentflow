@@ -21,7 +21,7 @@ function SignUp() {
   const [formValues, setFormValues] = useState({
     
       impalaMerchantId: 'plugin',
-      country: "KE",
+     // country: "KE",
       currency: 'KES',
       amount: '',
       customerName: '',
@@ -165,7 +165,7 @@ function SignUp() {
 
     const payload = {
       impalaMerchantId: formValues.impalaMerchantId,
-      country: formValues.country,
+     // country: formValues.country,
       currency: formValues.currency,
       amount: formValues.amount,
       customerName: formValues.customerName,
@@ -195,8 +195,8 @@ function SignUp() {
         }
         controllerRef.current = new AbortController()
         console.log('Submitting payment initiation:', payload, { attemptId, externalId: uniqueExternalId })
-        //  const res = await fetch('https://payments.mam-laka.com/api/v1/flutterwave/initiate', {
-        const res = await fetch('https://payments.mam-laka.com/api/v1/pay', {
+        const res = await fetch('https://payments.mam-laka.com/api/v1/flutterwave/initiate', {
+       // const res = await fetch('https://payments.mam-laka.com/api/v1/pay', {
         method: 'POST',
         signal: controllerRef.current.signal,
         // provide an idempotency key header so backends can dedupe
@@ -636,7 +636,7 @@ function SignUp() {
                 )}
               </div>
 
-              <div className="signup__field">
+            {/* <div className="signup__field">
                 <label htmlFor="currency">Currency</label>
                 <select
                   id="currency"
@@ -655,7 +655,7 @@ function SignUp() {
                 {errors.currency && (
                   <span className="signup__error">{errors.currency}</span>
                 )}
-              </div>
+              </div>*/}
 
               <div className="signup__field">
                 <label htmlFor="amount">Amount</label>
