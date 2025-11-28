@@ -46,6 +46,7 @@ const countryCurrencyMap = {
   NG: 'NGN',
   GH: 'GHS',
   RW: 'RWF',
+  ZM: 'ZMW',
 }
 // const POLL_TIMEOUT_MS = Number(import.meta.env.VITE_CALLBACK_POLL_TIMEOUT_MS || 180000) // default 3 minutes
 
@@ -158,8 +159,20 @@ function SignUp() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.customerEmail)) {
       nextErrors.customerEmail = 'Enter a valid email address'
     }
-    //  if (!values.payerPhone.trim()) nextErrors.payerPhone = 'Payer phone is required'
-    //  else if (!/^\+?[1-9]\d{7,14}$/.test(values.payerPhone.trim())) nextErrors.payerPhone = 'Phone must be E.164 (e.g. +2547...)'
+    const phoneRegex = /^\+[1-9]\d{7,14}$/;
+
+if (!values.payerPhone.trim()) {
+  nextErrors.payerPhone = 'Phone number is required'
+} else if (!phoneRegex.test(values.payerPhone.trim())) {
+  nextErrors.payerPhone = 'Enter a valid international phone number (e.g., +254712345678)'
+}
+
+    // if (!values.payerPhone.trim()) {
+    //   nextErrors.payerPhone = 'Phone number is required'
+    // } 
+    // else if (!/^[1-9]\d{8,14}$/.test(values.payerPhone.trim())) {
+    //   nextErrors.payerPhone = 'Enter phone in international format without + (e.g. 254712345678)'
+    // }
     if (!values.description.trim()) nextErrors.description = 'Description is required'
     return nextErrors
   }
@@ -247,7 +260,7 @@ function SignUp() {
       }
       controllerRef.current = new AbortController()
       console.log('Submitting payment initiation:', payload, { attemptId, externalId: uniqueExternalId })
-      const res = await fetch('https://payments.mam-laka.com/api/v1/korapay/initiate', {
+      const res = await fetch('https://payments.mam-laka.com/api/v1/flutterwave/initiate', {
         //  const res = await fetch('https://payments.mam-laka.com/api/v1/pay', {
         method: 'POST',
         signal: controllerRef.current.signal,
@@ -689,6 +702,7 @@ function SignUp() {
                 <option value="NG">Nigeria</option>
                 <option value="GH">Ghana</option>
                 <option value="RW">Rwanda</option>
+                <option value="ZM">Zambia</option>
               </select>
               {errors.country && (
                 <span className="signup__error">{errors.country}</span>
@@ -716,6 +730,7 @@ function SignUp() {
                 <option value="NGN">Nigeria (NGN)</option>
                 <option value="GHS">Ghana (GHS)</option>
                 <option value="RWF">Rwanda (RWF)</option>
+                <option value="ZMW">Zambia (ZMW)</option>
               </select>
               {errors.currency && (
                 <span className="signup__error">{errors.currency}</span>
@@ -747,13 +762,13 @@ function SignUp() {
                 id="payerPhone"
                 name="payerPhone"
                 type="tel"
-                placeholder="Enter phone Number(+254...)"
+                placeholder="e.g. 254712345678 or 260971234567"
                 value={formValues.payerPhone}
                 onChange={handleChange}
                 aria-invalid={Boolean(errors.payerPhone) || undefined}
               />
               <small style={{ display: 'block', marginTop: '4px', opacity: 0.75 }}>
-                Use full international format, e.g. 254,255(no +).
+                International format without + (e.g. 254712345678 for Kenya, 260971234567 for Zambia)
               </small>
               {errors.payerPhone && (
                 <span className="signup__error">{errors.payerPhone}</span>
