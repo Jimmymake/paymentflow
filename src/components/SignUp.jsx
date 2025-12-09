@@ -161,11 +161,11 @@ function SignUp() {
     }
     const phoneRegex = /^\+[1-9]\d{7,14}$/;
 
-if (!values.payerPhone.trim()) {
-  nextErrors.payerPhone = 'Phone number is required'
-} else if (!phoneRegex.test(values.payerPhone.trim())) {
-  nextErrors.payerPhone = 'Enter a valid international phone number (e.g., +254712345678)'
-}
+    if (!values.payerPhone.trim()) {
+      nextErrors.payerPhone = 'Phone number is required'
+    } else if (!phoneRegex.test(values.payerPhone.trim())) {
+      nextErrors.payerPhone = 'Enter a valid international phone number (e.g., +254712345678)'
+    }
 
     // if (!values.payerPhone.trim()) {
     //   nextErrors.payerPhone = 'Phone number is required'
@@ -353,15 +353,14 @@ if (!values.payerPhone.trim()) {
             const data = body.data || {}
 
             // If webhook carries externalId, ensure it matches current one
+            // Only check actual externalId fields - NOT provider-generated references
+            // (Paystack/Korapay use their own reference IDs, not our externalId)
             const cbExternalId =
               body.externalId ||
               body.external_id ||
               data.externalId ||
               data.external_id ||
-              data.reference ||
-              data.payment_reference ||
-              data.tx_ref ||
-              body.reference
+              data.tx_ref  // Flutterwave uses tx_ref for the merchant's reference
             if (cbExternalId && cbExternalId !== currentExternalIdRef.current) {
               return
             }
@@ -591,7 +590,7 @@ if (!values.payerPhone.trim()) {
 
                           const status =
                             data.status || b.status
-                            
+
                           const message =
                             data.status_message ||
                             data.statusMessage ||

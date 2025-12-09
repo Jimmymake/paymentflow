@@ -1,3 +1,4 @@
+
 import http from 'http'
 import fs from 'fs/promises'
 import path from 'path'
@@ -30,12 +31,17 @@ function getMimeType(filePath) {
   return mimeTypes[ext] || 'application/octet-stream'
 }
 
-function sendJson(res, statusCode, data) {
-  res.statusCode = statusCode
-  res.setHeader('Content-Type', 'application/json')
+// ---- GLOBAL CORS ----
+function applyCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+}
+
+function sendJson(res, statusCode, data) {
+  res.statusCode = statusCode
+  applyCors(res)
+  res.setHeader('Content-Type', 'application/json')
   res.end(JSON.stringify(data))
 }
 
@@ -46,9 +52,7 @@ function notFound(res) {
 async function readRequestBody(req) {
   return new Promise((resolve, reject) => {
     let body = ''
-    req.on('data', (chunk) => {
-      body += chunk
-    })
+    req.on('data', (chunk) => { body += chunk })
     req.on('end', () => resolve(body))
     req.on('error', reject)
   })
@@ -61,26 +65,19 @@ async function tryServeStatic(pathname, res, headOnly = false) {
   if (!requestedPath || requestedPath === '/') requestedPath = '/index.html'
 
   let decoded
-  try {
-    decoded = decodeURIComponent(requestedPath)
-  } catch {
-    decoded = requestedPath
-  }
+  try { decoded = decodeURIComponent(requestedPath) }
+  catch { decoded = requestedPath }
 
   const filePath = path.join(distDir, decoded)
-  if (!filePath.startsWith(distDir)) {
-    return false
-  }
+  if (!filePath.startsWith(distDir)) return false
 
   try {
     const file = await fs.readFile(filePath)
     res.statusCode = 200
+    applyCors(res)
     res.setHeader('Content-Type', getMimeType(filePath))
-    if (headOnly) {
-      res.end()
-    } else {
-      res.end(file)
-    }
+    if (headOnly) return res.end()
+    res.end(file)
     return true
   } catch {
     return false
@@ -92,6 +89,7 @@ async function serveIndex(res) {
   try {
     const html = await fs.readFile(indexPath)
     res.statusCode = 200
+    applyCors(res)
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.end(html)
   } catch {
@@ -101,26 +99,22 @@ async function serveIndex(res) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    applyCors(res)
+
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+      res.statusCode = 204
+      return res.end()
+    }
+
     const parsed = new URL(req.url || '/', 'http://localhost')
     let pathname = parsed.pathname || '/'
-
     if (pathname.length > 1 && pathname.endsWith('/')) {
       pathname = pathname.slice(0, -1)
     }
 
     if (req.method === 'GET' && pathname === '/health') {
       return sendJson(res, 200, { ok: true })
-    }
-
-    if (
-      req.method === 'OPTIONS' &&
-      (pathname === '/api/v1/callback' || pathname === '/api/v1/callback/latest')
-    ) {
-      res.statusCode = 204
-      res.setHeader('Access-Control-Allow-Origin', '*')
-      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-      return res.end()
     }
 
     if (req.method === 'GET' && pathname === '/api/v1/callback/latest') {
@@ -130,43 +124,36 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && pathname === '/api/v1/callback') {
       const rawBody = await readRequestBody(req)
       let json
-      try {
-        json = JSON.parse(rawBody || '{}')
-      } catch {
-        json = { raw: rawBody }
-      }
-      console.log('[callback] received payload:', JSON.stringify(json, null, 2))
+      try { json = JSON.parse(rawBody || '{}') }
+      catch { json = { raw: rawBody } }
+
+      console.log('[callback] received:', json)
       latestCallback = {
         receivedAt: new Date().toISOString(),
         headers: req.headers,
         body: json
       }
-      console.log('[callback] stored as latest callback at', latestCallback.receivedAt)
       return sendJson(res, 200, { ok: true })
     }
 
     if (req.method === 'GET' || req.method === 'HEAD') {
       const served = await tryServeStatic(pathname, res, req.method === 'HEAD')
       if (served) return
-      if (req.method === 'GET') {
-        return serveIndex(res)
-      }
+      if (req.method === 'GET') return serveIndex(res)
     }
 
     return notFound(res)
+
   } catch (e) {
-    console.error('[server] error:', e && e.stack ? e.stack : e)
+    console.error('[server error]', e)
     return sendJson(res, 500, {
       error: 'internal-error',
-      message: String(e && e.message ? e.message : e)
+      message: e?.message || String(e)
     })
   }
 })
 
 const PORT = Number(process.env.PORT || 3001)
-server.on('error', (err) => {
-  console.error('[server] listen error:', err && err.code ? err.code : err)
-})
 server.listen(PORT, () => {
   console.log(`[server] listening on port ${PORT}`)
 })
